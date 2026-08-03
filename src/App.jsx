@@ -178,7 +178,9 @@ function App() {
   return (
     <>
       {!user ? (        <div className="login-card">
-          <h1>MAA SARADA TRANSPORT</h1>
+          <h1 style={{ whiteSpace: "nowrap" }}>
+  MAA SARADA TRANSPORT
+</h1>
           <h2>Login</h2>
 
           <input
