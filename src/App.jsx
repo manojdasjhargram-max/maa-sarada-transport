@@ -24,9 +24,11 @@ function App() {
 
   const [user, setUser] = useState(null);
 
+  // Login
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
+  // Advance Form
   const [company, setCompany] = useState("");
   const [date, setDate] = useState(
     new Date().toISOString().split("T")[0]
@@ -36,29 +38,45 @@ function App() {
   const [destination, setDestination] = useState("");
   const [distance, setDistance] = useState("");
 
+  // NEW
+  const [lrNo, setLrNo] = useState("");
+
   const [hsd, setHsd] = useState("");
   const [cash, setCash] = useState("");
   const [bank, setBank] = useState("");
 
+  // NEW
+  const [otherExpense, setOtherExpense] = useState("");
+
   const [driverName, setDriverName] = useState("");
   const [mobile, setMobile] = useState("");
-
   const [remarks, setRemarks] = useState("");
 
   const total =
     (Number(hsd) || 0) +
     (Number(cash) || 0) +
-    (Number(bank) || 0);  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
-    });
+    (Number(bank) || 0) +
+    (Number(otherExpense) || 0);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(
+      auth,
+      (currentUser) => {
+        setUser(currentUser);
+      }
+    );
 
     return () => unsubscribe();
   }, []);
 
   const login = async () => {
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      await signInWithEmailAndPassword(
+        auth,
+        email,
+        password
+      );
+
       alert("Login Successful");
     } catch (error) {
       alert(error.message);
@@ -82,12 +100,13 @@ function App() {
     });
 
     const link = document.createElement("a");
-    link.download = `${vehicle || "Advance"}-${date}.png`;
-    link.href = canvas.toDataURL("image/png");
-    link.click();
-  };
 
-  const handleSave = async () => {
+    link.download = `${vehicle || "Advance"}-${date}.png`;
+
+    link.href = canvas.toDataURL("image/png");
+
+    link.click();
+  };  const handleSave = async () => {
     try {
       await addDoc(collection(db, "advances"), {
         company,
@@ -95,13 +114,22 @@ function App() {
         vehicle,
         destination,
         distance: Number(distance),
+
+        lrNo,
+
         hsd: Number(hsd),
         cash: Number(cash),
         bank: Number(bank),
+
+        otherExpense: Number(otherExpense),
+
         total,
+
         driverName,
         mobile,
         remarks,
+
+        createdBy: user?.email || "",
         createdAt: new Date(),
       });
 
@@ -114,9 +142,11 @@ function App() {
       setVehicle("");
       setDestination("");
       setDistance("");
+      setLrNo("");
       setHsd("");
       setCash("");
       setBank("");
+      setOtherExpense("");
       setDriverName("");
       setMobile("");
       setRemarks("");
@@ -124,9 +154,13 @@ function App() {
     } catch (error) {
       alert(error.message);
     }
-  };  const downloadExcel = async () => {
+  };
+
+  const downloadExcel = async () => {
     try {
-      const querySnapshot = await getDocs(collection(db, "advances"));
+      const querySnapshot = await getDocs(
+        collection(db, "advances")
+      );
 
       const data = [];
 
@@ -136,16 +170,19 @@ function App() {
         data.push({
           Date: d.date,
           Company: d.company,
-          Vehicle: d.vehicle,
+          Vehicle_No: d.vehicle,
           Destination: d.destination,
-          Distance: d.distance,
+          Distance_KM: d.distance,
+          LR_No: d.lrNo,
           HSD: d.hsd,
           Cash: d.cash,
           Bank: d.bank,
+          Other_Expense: d.otherExpense,
           Total: d.total,
           Driver_Name: d.driverName,
-          Mobile_Number: d.mobile,
+          Mobile: d.mobile,
           Remarks: d.remarks,
+          Created_By: d.createdBy,
         });
       });
 
@@ -164,11 +201,17 @@ function App() {
         type: "array",
       });
 
-      const file = new Blob([excelBuffer], {
-        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      });
+      const file = new Blob(
+        [excelBuffer],
+        {
+          type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        }
+      );
 
-      saveAs(file, "MAA_SARADA_TRANSPORT_ADVANCE.xlsx");
+      saveAs(
+        file,
+        "MAA_SARADA_TRANSPORT_ADVANCE.xlsx"
+      );
 
     } catch (error) {
       alert(error.message);
@@ -178,9 +221,11 @@ function App() {
   return (
     <>
       {!user ? (        <div className="login-card">
+
           <h1 style={{ whiteSpace: "nowrap" }}>
-  MAA SARADA TRANSPORT
-</h1>
+            MAA SARADA TRANSPORT
+          </h1>
+
           <h2>Login</h2>
 
           <input
@@ -197,13 +242,19 @@ function App() {
             onChange={(e) => setPassword(e.target.value)}
           />
 
-          <button onClick={login}>LOGIN</button>
+          <button onClick={login}>
+            LOGIN
+          </button>
+
         </div>
       ) : (
+
         <div className="container">
 
           <div className="card">
+
             <h1>MAA SARADA TRANSPORT</h1>
+
             <h2>Advance Management System</h2>
 
             <p style={{ marginBottom: "15px" }}>
@@ -261,6 +312,15 @@ function App() {
             />
 
             <input
+              type="text"
+              placeholder="LR Number"
+              value={lrNo}
+              onChange={(e) =>
+                setLrNo(e.target.value.toUpperCase())
+              }
+            />
+
+            <input
               type="number"
               placeholder="HSD Advance"
               value={hsd}
@@ -279,6 +339,13 @@ function App() {
               placeholder="Bank Advance"
               value={bank}
               onChange={(e) => setBank(e.target.value)}
+            />
+
+            <input
+              type="number"
+              placeholder="Other Expense"
+              value={otherExpense}
+              onChange={(e) => setOtherExpense(e.target.value)}
             />
 
             <input
@@ -301,7 +368,9 @@ function App() {
               placeholder="Mobile Number"
               value={mobile}
               onChange={(e) =>
-                setMobile(e.target.value.replace(/\D/g, "").slice(0, 10))
+                setMobile(
+                  e.target.value.replace(/\D/g, "").slice(0, 10)
+                )
               }
             />
 
@@ -309,7 +378,9 @@ function App() {
               placeholder="Remarks"
               value={remarks}
               onChange={(e) => setRemarks(e.target.value)}
-            />            <button onClick={handleSave}>
+            />
+
+            <button onClick={handleSave}>
               SAVE ADVANCE
             </button>
 
@@ -325,49 +396,96 @@ function App() {
                 DOWNLOAD EXCEL
               </button>
             )}
+
           </div>
 
-          <div ref={slipRef} className="slip">
-            <h1>MAA SARADA TRANSPORT</h1>
-            <h2>ADVANCE SLIP</h2>
+          <div ref={slipRef} className="slip"><h1>MAA SARADA TRANSPORT</h1>
 
-            <table className="slip-table">
-              <tbody>
-                <tr><td>Company</td><td>{company}</td></tr>
-                <tr><td>Date</td><td>{date}</td></tr>
-                <tr><td>Vehicle No</td><td>{vehicle}</td></tr>
-                <tr><td>Destination</td><td>{destination}</td></tr>
-                <tr><td>Distance</td><td>{distance} KM</td></tr>
-                <tr><td>HSD Advance</td><td>₹ {hsd || 0}</td></tr>
-                <tr><td>Cash Advance</td><td>₹ {cash || 0}</td></tr>
-                <tr><td>Bank Advance</td><td>₹ {bank || 0}</td></tr>
-                <tr>
-                  <td><b>Total Advance</b></td>
-                  <td><b>₹ {total}</b></td>
-                </tr>
-                <tr><td>Driver Name</td><td>{driverName}</td></tr>
-                <tr><td>Mobile Number</td><td>{mobile}</td></tr>
-                <tr><td>Remarks</td><td>{remarks || "-"}</td></tr>
-              </tbody>
-            </table>
+<h2>ADVANCE SLIP</h2>
 
-            <br />
+<table className="slip-table">
+  <tbody>
 
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                marginTop: "40px",
-              }}
-            >
-              <div
-  style={{
-    display: "flex",
-    justifyContent: "space-between",
-    marginTop: "40px",
-  }}
->
-  <div
+    <tr>
+      <td>Company</td>
+      <td>{company}</td>
+    </tr>
+
+    <tr>
+      <td>Date</td>
+      <td>{date}</td>
+    </tr>
+
+    <tr>
+      <td>LR No</td>
+      <td>{lrNo}</td>
+    </tr>
+
+    <tr>
+      <td>Vehicle No</td>
+      <td>{vehicle}</td>
+    </tr>
+
+    <tr>
+      <td>Destination</td>
+      <td>{destination}</td>
+    </tr>
+
+    <tr>
+      <td>Distance</td>
+      <td>{distance} KM</td>
+    </tr>
+
+    <tr>
+      <td>HSD Advance</td>
+      <td>₹ {hsd || 0}</td>
+    </tr>
+
+    <tr>
+      <td>Cash Advance</td>
+      <td>₹ {cash || 0}</td>
+    </tr>
+
+    <tr>
+      <td>Bank Advance</td>
+      <td>₹ {bank || 0}</td>
+    </tr>
+
+    <tr>
+      <td>Other Expense</td>
+      <td>₹ {otherExpense || 0}</td>
+    </tr>
+
+    <tr>
+      <td>
+        <b>Total Advance</b>
+      </td>
+      <td>
+        <b>₹ {total.toLocaleString()}</b>
+      </td>
+    </tr>
+
+    <tr>
+      <td>Driver Name</td>
+      <td>{driverName}</td>
+    </tr>
+
+    <tr>
+      <td>Mobile Number</td>
+      <td>{mobile}</td>
+    </tr>
+
+    <tr>
+      <td>Remarks</td>
+      <td>{remarks || "-"}</td>
+    </tr>
+
+  </tbody>
+</table>
+
+<br />
+
+<div
   style={{
     display: "flex",
     justifyContent: "space-between",
@@ -381,11 +499,13 @@ function App() {
 
   <div style={{ textAlign: "center" }}>
     ___________________<br />
+
     <b>
       {user?.email
         ? user.email.split("@")[0].toUpperCase()
         : "AUTHORIZED SIGNATORY"}
     </b>
+
     <br />
     Authorized Signature
   </div>
@@ -394,7 +514,17 @@ function App() {
     textAlign: "center",
     marginTop: "30px",
     fontSize: "12px",
+    color: "#666",
   }}
 >
   Generated by Maa Sarada Transport
 </p>
+
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+export default App;
