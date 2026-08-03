@@ -1,6 +1,6 @@
 const companies = [
-  "FARAKKA",
-  "SANKRAIL",
+  "FARAKKA ACC&ACL",
+  "SANKRAIL ACC&ACL",
   "OCL",
   "BIRLA",
   "HUB",
