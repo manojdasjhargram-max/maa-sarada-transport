@@ -1,44 +1,77 @@
-import { useState, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import "./App.css";
 import html2canvas from "html2canvas";
-import { collection, addDoc } from "firebase/firestore";
-import { db } from "./firebase";
+import * as XLSX from "xlsx";
+import { saveAs } from "file-saver";
 
-const companies = [
-  "FARAKKA",
-  "SANKRAIL",
-  "OCL",
-  "BIRLA",
-  "HUB",
-  "JSW",
-  "ACC",
-  "AMBUJA",
-  "ULTRATECH",
-  "DALMIA",
-  "JK CEMENT",
-  "RAMCO",
-  "NUVOCO",
-];
+import { db, auth } from "./firebase";
+import companies from "./companies";
+
+import {
+  collection,
+  addDoc,
+  getDocs,
+} from "firebase/firestore";
+
+import {
+  signInWithEmailAndPassword,
+  signOut,
+  onAuthStateChanged,
+} from "firebase/auth";
 
 function App() {
   const slipRef = useRef(null);
+
+  const [user, setUser] = useState(null);
+
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
 
   const [company, setCompany] = useState("");
   const [date, setDate] = useState(
     new Date().toISOString().split("T")[0]
   );
+
   const [vehicle, setVehicle] = useState("");
   const [destination, setDestination] = useState("");
   const [distance, setDistance] = useState("");
+
   const [hsd, setHsd] = useState("");
   const [cash, setCash] = useState("");
   const [bank, setBank] = useState("");
+
+  const [driverName, setDriverName] = useState("");
+  const [mobile, setMobile] = useState("");
+
   const [remarks, setRemarks] = useState("");
 
   const total =
     (Number(hsd) || 0) +
     (Number(cash) || 0) +
-    (Number(bank) || 0);
+    (Number(bank) || 0);  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  const login = async () => {
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+      alert("Login Successful");
+    } catch (error) {
+      alert(error.message);
+    }
+  };
+
+  const logout = async () => {
+    try {
+      await signOut(auth);
+    } catch (error) {
+      alert(error.message);
+    }
+  };
 
   const downloadSlip = async () => {
     if (!slipRef.current) return;
@@ -46,7 +79,6 @@ function App() {
     const canvas = await html2canvas(slipRef.current, {
       scale: 2,
       backgroundColor: "#ffffff",
-      useCORS: true,
     });
 
     const link = document.createElement("a");
@@ -67,13 +99,15 @@ function App() {
         cash: Number(cash),
         bank: Number(bank),
         total,
+        driverName,
+        mobile,
         remarks,
         createdAt: new Date(),
       });
 
       await downloadSlip();
 
-      alert("Advance Saved Successfully!");
+      alert("Advance Saved Successfully");
 
       setCompany("");
       setDate(new Date().toISOString().split("T")[0]);
@@ -83,189 +117,271 @@ function App() {
       setHsd("");
       setCash("");
       setBank("");
+      setDriverName("");
+      setMobile("");
       setRemarks("");
-    } catch (err) {
-      alert(err.message);
+
+    } catch (error) {
+      alert(error.message);
     }
-  };return (
-    <div className="container">
-      <h1>MAA SARADA TRANSPORT</h1>
-      <h2>Advance Management System</h2>
+  };  const downloadExcel = async () => {
+    try {
+      const querySnapshot = await getDocs(collection(db, "advances"));
 
-      <div className="card">
-        <select
-          value={company}
-          onChange={(e) => setCompany(e.target.value)}
-        >
-          <option value="">Select Company</option>
+      const data = [];
 
-          {companies.map((item, index) => (
-            <option key={index} value={item}>
-              {item}
-            </option>
-          ))}
-        </select>
+      querySnapshot.forEach((doc) => {
+        const d = doc.data();
 
-        <input
-          type="date"
-          value={date}
-          onChange={(e) => setDate(e.target.value)}
-        />
+        data.push({
+          Date: d.date,
+          Company: d.company,
+          Vehicle: d.vehicle,
+          Destination: d.destination,
+          Distance: d.distance,
+          HSD: d.hsd,
+          Cash: d.cash,
+          Bank: d.bank,
+          Total: d.total,
+          Driver_Name: d.driverName,
+          Mobile_Number: d.mobile,
+          Remarks: d.remarks,
+        });
+      });
 
-        <input
-          type="text"
-          placeholder="Vehicle Number"
-          value={vehicle}
-          onChange={(e) => setVehicle(e.target.value.toUpperCase())}
-        />
+      const worksheet = XLSX.utils.json_to_sheet(data);
 
-        <input
-          type="text"
-          placeholder="Destination"
-          value={destination}
-          onChange={(e) => setDestination(e.target.value.toUpperCase())}
-        />
+      const workbook = XLSX.utils.book_new();
 
-        <input
-          type="number"
-          placeholder="Distance (KM)"
-          value={distance}
-          onChange={(e) => setDistance(e.target.value)}
-        />
+      XLSX.utils.book_append_sheet(
+        workbook,
+        worksheet,
+        "Advances"
+      );
 
-        <input
-          type="number"
-          placeholder="HSD Advance"
-          value={hsd}
-          onChange={(e) => setHsd(e.target.value)}
-        />
+      const excelBuffer = XLSX.write(workbook, {
+        bookType: "xlsx",
+        type: "array",
+      });
 
-        <input
-          type="number"
-          placeholder="Cash Advance"
-          value={cash}
-          onChange={(e) => setCash(e.target.value)}
-        />
+      const file = new Blob([excelBuffer], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
 
-        <input
-          type="number"
-          placeholder="Bank Advance"
-          value={bank}
-          onChange={(e) => setBank(e.target.value)}
-        />
+      saveAs(file, "MAA_SARADA_TRANSPORT_ADVANCE.xlsx");
 
-        <input
-          type="text"
-          value={`Total Advance : ₹ ${total}`}
-          readOnly
-        />
+    } catch (error) {
+      alert(error.message);
+    }
+  };
 
-        <textarea
-          placeholder="Remarks"
-          value={remarks}
-          onChange={(e) => setRemarks(e.target.value)}
-        />
+  return (
+    <>
+      {!user ? (        <div className="login-card">
+          <h1>MAA SARADA TRANSPORT</h1>
+          <h2>Login</h2>
 
-        <button onClick={handleSave}>
-          SAVE ADVANCE
-        </button>
-      </div>
+          <input
+            type="email"
+            placeholder="Email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
 
-      <div
-        ref={slipRef}
-        className="slip"
-      >
-        <h1>MAA SARADA TRANSPORT</h1>
-        <h2>ADVANCE SLIP</h2>
+          <input
+            type="password"
+            placeholder="Password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
 
-        <hr /><table className="slip-table">
-          <tbody>
-            <tr>
-              <td><b>Company</b></td>
-              <td>{company}</td>
-            </tr>
+          <button onClick={login}>LOGIN</button>
+        </div>
+      ) : (
+        <div className="container">
 
-            <tr>
-              <td><b>Date</b></td>
-              <td>{date}</td>
-            </tr>
+          <div className="card">
+            <h1>MAA SARADA TRANSPORT</h1>
+            <h2>Advance Management System</h2>
 
-            <tr>
-              <td><b>Vehicle No</b></td>
-              <td>{vehicle}</td>
-            </tr>
+            <p style={{ marginBottom: "15px" }}>
+              Welcome : <b>{user.email}</b>
+            </p>
 
-            <tr>
-              <td><b>Destination</b></td>
-              <td>{destination}</td>
-            </tr>
+            <button onClick={logout}>
+              LOGOUT
+            </button>
 
-            <tr>
-              <td><b>Distance</b></td>
-              <td>{distance} KM</td>
-            </tr>
+            <br /><br />
 
-            <tr>
-              <td><b>HSD Advance</b></td>
-              <td>₹ {Number(hsd || 0).toLocaleString()}</td>
-            </tr>
+            <select
+              value={company}
+              onChange={(e) => setCompany(e.target.value)}
+            >
+              <option value="">Select Company</option>
 
-            <tr>
-              <td><b>Cash Advance</b></td>
-              <td>₹ {Number(cash || 0).toLocaleString()}</td>
-            </tr>
+              {companies.map((item) => (
+                <option key={item} value={item}>
+                  {item}
+                </option>
+              ))}
+            </select>
 
-            <tr>
-              <td><b>Bank Advance</b></td>
-              <td>₹ {Number(bank || 0).toLocaleString()}</td>
-            </tr>
+            <input
+              type="date"
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+            />
 
-            <tr>
-              <td>
-                <b>Total Advance</b>
-              </td>
-              <td>
-                <b>₹ {total.toLocaleString()}</b>
-              </td>
-            </tr>
+            <input
+              type="text"
+              placeholder="Vehicle Number"
+              value={vehicle}
+              onChange={(e) =>
+                setVehicle(e.target.value.toUpperCase())
+              }
+            />
 
-            <tr>
-              <td><b>Remarks</b></td>
-              <td>{remarks || "-"}</td>
-            </tr>
-          </tbody>
-        </table>
+            <input
+              type="text"
+              placeholder="Destination"
+              value={destination}
+              onChange={(e) =>
+                setDestination(e.target.value.toUpperCase())
+              }
+            />
 
-        <hr />
+            <input
+              type="number"
+              placeholder="Distance (KM)"
+              value={distance}
+              onChange={(e) => setDistance(e.target.value)}
+            />
 
-        <div
-          style={{
-            marginTop: "25px",
-            display: "flex",
-            justifyContent: "space-between",
-          }}
-        >
-          <div>
-            ___________________<br />
-            Driver Signature
+            <input
+              type="number"
+              placeholder="HSD Advance"
+              value={hsd}
+              onChange={(e) => setHsd(e.target.value)}
+            />
+
+            <input
+              type="number"
+              placeholder="Cash Advance"
+              value={cash}
+              onChange={(e) => setCash(e.target.value)}
+            />
+
+            <input
+              type="number"
+              placeholder="Bank Advance"
+              value={bank}
+              onChange={(e) => setBank(e.target.value)}
+            />
+
+            <input
+              type="text"
+              readOnly
+              value={`Total Advance : ₹ ${total.toLocaleString()}`}
+            />
+
+            <input
+              type="text"
+              placeholder="Driver Name"
+              value={driverName}
+              onChange={(e) =>
+                setDriverName(e.target.value.toUpperCase())
+              }
+            />
+
+            <input
+              type="tel"
+              placeholder="Mobile Number"
+              value={mobile}
+              onChange={(e) =>
+                setMobile(e.target.value.replace(/\D/g, "").slice(0, 10))
+              }
+            />
+
+            <textarea
+              placeholder="Remarks"
+              value={remarks}
+              onChange={(e) => setRemarks(e.target.value)}
+            />            <button onClick={handleSave}>
+              SAVE ADVANCE
+            </button>
+
+            {user?.email === "manojdas.jhargram@gmail.com" && (
+              <button
+                onClick={downloadExcel}
+                style={{
+                  marginTop: "10px",
+                  backgroundColor: "green",
+                  color: "#fff",
+                }}
+              >
+                DOWNLOAD EXCEL
+              </button>
+            )}
           </div>
 
-          <div style={{ textAlign: "right" }}>
-            ___________________<br />
-            Authorized Signatory
+          <div ref={slipRef} className="slip">
+            <h1>MAA SARADA TRANSPORT</h1>
+            <h2>ADVANCE SLIP</h2>
+
+            <table className="slip-table">
+              <tbody>
+                <tr><td>Company</td><td>{company}</td></tr>
+                <tr><td>Date</td><td>{date}</td></tr>
+                <tr><td>Vehicle No</td><td>{vehicle}</td></tr>
+                <tr><td>Destination</td><td>{destination}</td></tr>
+                <tr><td>Distance</td><td>{distance} KM</td></tr>
+                <tr><td>HSD Advance</td><td>₹ {hsd || 0}</td></tr>
+                <tr><td>Cash Advance</td><td>₹ {cash || 0}</td></tr>
+                <tr><td>Bank Advance</td><td>₹ {bank || 0}</td></tr>
+                <tr>
+                  <td><b>Total Advance</b></td>
+                  <td><b>₹ {total}</b></td>
+                </tr>
+                <tr><td>Driver Name</td><td>{driverName}</td></tr>
+                <tr><td>Mobile Number</td><td>{mobile}</td></tr>
+                <tr><td>Remarks</td><td>{remarks || "-"}</td></tr>
+              </tbody>
+            </table>
+
+            <br />
+
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                marginTop: "40px",
+              }}
+            >
+              <div>
+                ___________________<br />
+                Driver Signature
+              </div>
+
+              <div>
+                ___________________<br />
+                Authorized Signature
+              </div>
+            </div>
+
+            <p
+              style={{
+                textAlign: "center",
+                marginTop: "30px",
+                fontSize: "12px",
+              }}
+            >
+              Generated by Maa Sarada Transport
+            </p>
           </div>
         </div>
-
-        <p
-          style={{
-            textAlign: "center",
-            marginTop: "25px",
-            fontSize: "13px",
-          }}
-        >
-          Generated by MAA SARADA TRANSPORT
-        </p>
-      </div></div>
+      )}
+    </>
   );
 }
 
