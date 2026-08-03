@@ -363,12 +363,11 @@ function App() {
               <div>
                 ___________________<br />
                 Driver Signature
-              </div>
-
               <div>
-                ___________________<br />
-                Authorized Signature
-              </div>
+  ___________________<br />
+  {user?.email ? user.email.split("@")[0].toUpperCase() : "AUTHORIZED SIGNATORY"}<br />
+  Authorized Signature
+</div>
             </div>
 
             <p
